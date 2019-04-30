@@ -1,0 +1,106 @@
+import logging, traceback, sys, threading
+try:
+    import Queue
+except ImportError:
+    import queue as Queue
+
+from ..log import set_logging
+from ..utils import test_connect
+from ..storage import templates
+
+logger = logging.getLogger('itchat')
+
+def load_register(core):
+    core.auto_login       = auto_login              # login
+    core.configured_reply = configured_reply        # reply: call customed method to reply
+    core.msg_register     = msg_register            # decorator: save customed method
+    core.run              = run                     # reply daemon: configured_reply
+
+def auto_login(self, hotReload=False, statusStorageDir='itchat.pkl',
+        enableCmdQR=False, picDir=None, qrCallback=None,
+        loginCallback=None, exitCallback=None):
+    if not test_connect():
+        logger.info("You can't get access to internet or wechat domain, so exit.")
+        sys.exit()
+    self.useHotReload = hotReload
+    self.hotReloadDir = statusStorageDir
+    if hotReload:
+        if self.load_login_status(statusStorageDir,
+                loginCallback=loginCallback, exitCallback=exitCallback):
+            return
+        self.login(enableCmdQR=enableCmdQR, picDir=picDir, qrCallback=qrCallback,
+            loginCallback=loginCallback, exitCallback=exitCallback)
+        self.dump_login_status(statusStorageDir)
+    else:
+        self.login(enableCmdQR=enableCmdQR, picDir=picDir, qrCallback=qrCallback,
+            loginCallback=loginCallback, exitCallback=exitCallback)
+
+# reply  ....
+def configured_reply(self):
+    ''' determine the type of message and reply if its method is defined
+        however, I use a strange way to determine whether a msg is from massive platform
+        I haven't found a better solution here
+        The main problem I'm worrying about is the mismatching of new friends added on phone
+        If you have any good idea, pleeeease report an issue. I will be more than grateful.
+    '''
+    try:
+        msg = self.msgList.get(timeout=1) # message queue
+    except Queue.Empty:
+        pass
+    else:
+        if isinstance(msg['User'], templates.User):
+            replyFn = self.functionDict['FriendChat'].get(msg['Type'])
+        elif isinstance(msg['User'], templates.MassivePlatform):
+            replyFn = self.functionDict['MpChat'].get(msg['Type'])
+        elif isinstance(msg['User'], templates.Chatroom):
+            replyFn = self.functionDict['GroupChat'].get(msg['Type'])
+        if replyFn is None:
+            r = None
+        else:
+            try:
+                r = replyFn(msg)
+                if r is not None:
+                    self.send(r, msg.get('FromUserName'))
+            except:
+                logger.warning(traceback.format_exc())
+
+# decorator--->save customed func as self.functionDict[]  to respond to Received_Message
+def msg_register(self, msgType, isFriendChat=False, isGroupChat=False, isMpChat=False):
+    ''' a decorator constructor
+        return a specific decorator based on information given '''
+    if not (isinstance(msgType, list) or isinstance(msgType, tuple)):
+        msgType = [msgType]
+    def _msg_register(fn):
+        for _msgType in msgType:
+            if isFriendChat:
+                self.functionDict['FriendChat'][_msgType] = fn
+            if isGroupChat:
+                self.functionDict['GroupChat'][_msgType] = fn
+            if isMpChat:
+                self.functionDict['MpChat'][_msgType] = fn
+            if not any((isFriendChat, isGroupChat, isMpChat)):
+                self.functionDict['FriendChat'][_msgType] = fn
+        return fn
+    return _msg_register
+
+# start Thread to
+def run(self, debug=False, blockThread=True):
+    logger.info('Start auto replying.')
+    if debug:
+        set_logging(loggingLevel=logging.DEBUG)
+    def reply_fn():
+        try:
+            while self.alive:
+                self.configured_reply()
+        except KeyboardInterrupt:# 手动退出 Ctrl+C
+            if self.useHotReload:
+                self.dump_login_status()
+            self.alive = False
+            logger.debug('itchat received an ^C and exit.')
+            logger.info('Bye~')
+    if blockThread:
+        reply_fn()
+    else:
+        replyThread = threading.Thread(target=reply_fn)# 开启进程
+        replyThread.setDaemon(True)# daemon ... ... 守护进程监听信息
+        replyThread.start()
