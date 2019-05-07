@@ -44,6 +44,13 @@ def get_download_fn(core, url, msgId):
             'PostFix': utils.get_image_postfix(tempStorage.read(20)), })
     return download_fn
 
+# AddMsgList[
+#   {
+#       Content=@XXX userName:<br/>19:00停电发错了
+#       FromUserName=
+#       MsgType=1
+#   }
+# ]
 def produce_msg(core, msgList):
     ''' for messages types
      * 40 msg, 43 videochat, 50 VOIPMSG, 52 voipnotifymsg
