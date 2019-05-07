@@ -30,7 +30,7 @@ def get_head_img(HeadImgUrl):
         add interface to get cookies from it
     '''
     sessionClient = requests.Session()# session会话，requets复杂用法，保持cookie
-    sessionClient.cookies = requests.utils.cookiejar_from_dict(itchat.get_cookies())
+    sessionClient.cookies = requests.utils.cookiejar_from_dict(itchat.get_cookies()) # 导入cookie
     # you can use params or use the url which contains params directly
     # url = "https://wx2.qq.com/cgi-bin/mmwebwx-bin/webwxgeticon"
     # res = re.match("/cgi-bin/mmwebwx-bin/webwxgeticon\?seq=(\d+)&username=(@[\d|\w]+)&skey=(.*)", HeadImgUrl)
