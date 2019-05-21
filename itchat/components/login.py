@@ -88,7 +88,7 @@ def login(self, enableCmdQR=False, picDir=None, qrCallback=None,
         if os.path.exists(picDir or config.DEFAULT_QR):
             os.remove(picDir or config.DEFAULT_QR)
         logger.info('Login successfully as %s' % self.storageClass.nickName)
-    self.start_receiving(exitCallback)
+    self.start_receiving(exitCallback) #
     self.isLogging = False
 
 ###########################################################################################################
@@ -381,9 +381,9 @@ def get_msg(self):
     headers = {
         'ContentType': 'application/json; charset=UTF-8',
         'User-Agent' : config.USER_AGENT }
-    r = self.s.post(url, data=json.dumps(data), headers=headers, timeout=config.TIMEOUT)
+    r = self.s.post(url, data=json.dumps(data), headers=headers, timeout=config.TIMEOUT)# ok。。
     dic = json.loads(r.content.decode('utf-8', 'replace'))
-    if dic['BaseResponse']['Ret'] != 0: return None, None
+    if dic['BaseResponse']['Ret'] != 0: return None, None # Exception HERE
     self.loginInfo['SyncKey'] = dic['SyncKey']
     self.loginInfo['synckey'] = '|'.join(['%s_%s' % (item['Key'], item['Val'])
         for item in dic['SyncCheckKey']['List']])
